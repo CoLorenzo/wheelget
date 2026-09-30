@@ -12,7 +12,7 @@ from .http import HttpClient, download
 from .providers import get_provider
 from .providers.torch import TorchProvider
 from .providers.vllm import torch_pin_from_wheel
-from .wheels import Target
+from .wheels import Target, Wheel, parse_wheel
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -64,6 +64,16 @@ def build_parser() -> argparse.ArgumentParser:
                 help="directory di destinazione (default: .)",
             )
             sub.add_argument("-f", "--force", action="store_true", help="sovrascrive file esistenti")
+    compatibility = subparsers.add_parser(
+        "torch-compability",
+        aliases=["torch-compatibility"],
+        help="stampa la versione Python richiesta da una wheel torch",
+    )
+    compatibility.add_argument(
+        "wheel",
+        nargs="?",
+        help="percorso della wheel torch (default: torch*.whl nella directory corrente)",
+    )
     return parser
 
 
@@ -79,6 +89,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _run(args: argparse.Namespace) -> int:
+    if args.command in ("torch-compability", "torch-compatibility"):
+        return _run_torch_compability(args)
     target = Target.current(python=_parse_python(args.python_version))
     if args.cuda:
         cuda = parse_cuda(args.cuda)
@@ -187,6 +199,54 @@ def _torch_companion(
             file=sys.stderr,
         )
     return None
+
+
+def _run_torch_compability(args: argparse.Namespace) -> int:
+    path = _find_torch_wheel(args.wheel)
+    wheel = parse_wheel(path.name, url=path.as_uri())
+    if wheel is None:
+        raise WheelgetError(f"{path.name} non e' un nome di wheel valido")
+    if wheel.name != "torch":
+        raise WheelgetError(f"{path.name} non e' una wheel di torch")
+    version = python_version_for_wheel(wheel)
+    if version is None:
+        raise WheelgetError(f"nessun tag Python riconosciuto in {path.name}")
+    print(version)
+    return 0
+
+
+def _find_torch_wheel(value: str | None) -> Path:
+    if value:
+        path = Path(value).expanduser()
+        if not path.is_file():
+            raise WheelgetError(f"file non trovato: {path}")
+        return path
+    matches = sorted(Path.cwd().glob("torch*.whl"))
+    if not matches:
+        raise WheelgetError(
+            "nessun torch*.whl nella directory corrente; passa il percorso della wheel"
+        )
+    if len(matches) > 1:
+        names = ", ".join(path.name for path in matches)
+        raise WheelgetError(f"piu' wheel trovate ({names}); passa il percorso")
+    return matches[0]
+
+
+def python_version_for_wheel(wheel: Wheel) -> str | None:
+    versions = []
+    for tag in wheel.py_tags:
+        match = re.fullmatch(r"cp(\d)(\d+)", tag)
+        if match:
+            versions.append((int(match.group(1)), int(match.group(2))))
+    if not versions:
+        for tag in wheel.py_tags:
+            match = re.fullmatch(r"py(\d)(\d+)", tag)
+            if match and match.group(1) == "3":
+                versions.append((3, int(match.group(2))))
+    if not versions:
+        return "3" if "py3" in wheel.py_tags else None
+    major, minor = min(versions)
+    return f"{major}.{minor}"
 
 
 def _parse_python(value: str | None) -> tuple[int, int] | None:

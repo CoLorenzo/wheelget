@@ -114,6 +114,47 @@ def test_get_vllm_torch_companion_falls_back_to_other_variant(tmp_path, monkeypa
     assert torch_provider.calls == [("2.13.0", "cu132"), ("2.13.0", None)]
 
 
+def test_torch_compability_prints_python_version(tmp_path, capsys):
+    path = tmp_path / "torch-2.13.0+cu129-cp313-cp313-manylinux_2_28_x86_64.whl"
+    path.write_bytes(b"")
+    assert main(["torch-compability", str(path)]) == 0
+    assert capsys.readouterr().out == "3.13\n"
+
+
+def test_torch_compability_alias_and_cp310(tmp_path, capsys):
+    path = tmp_path / "torch-2.9.1+cu128-cp310-cp310-manylinux_2_28_x86_64.whl"
+    path.write_bytes(b"")
+    assert main(["torch-compatibility", str(path)]) == 0
+    assert capsys.readouterr().out == "3.10\n"
+
+
+def test_torch_compability_abi3(tmp_path, capsys):
+    path = tmp_path / "torch-2.0.0-cp38-abi3-manylinux1_x86_64.whl"
+    path.write_bytes(b"")
+    assert main(["torch-compability", str(path)]) == 0
+    assert capsys.readouterr().out == "3.8\n"
+
+
+def test_torch_compability_globs_current_directory(tmp_path, monkeypatch, capsys):
+    wheel = tmp_path / "torch-2.13.0+cu129-cp312-cp312-manylinux_2_28_x86_64.whl"
+    wheel.write_bytes(b"")
+    monkeypatch.chdir(tmp_path)
+    assert main(["torch-compability"]) == 0
+    assert capsys.readouterr().out == "3.12\n"
+
+
+def test_torch_compability_rejects_non_torch(tmp_path, capsys):
+    path = tmp_path / "vllm-0.30.0-cp38-abi3-manylinux_2_28_x86_64.whl"
+    path.write_bytes(b"")
+    assert main(["torch-compability", str(path)]) == 1
+    assert "non e' una wheel di torch" in capsys.readouterr().err
+
+
+def test_torch_compability_missing_file(tmp_path, capsys):
+    assert main(["torch-compability", str(tmp_path / "nope.whl")]) == 1
+    assert "non trovato" in capsys.readouterr().err
+
+
 def test_get_vllm_without_torch_pin(tmp_path, monkeypatch, capsys):
     vllm_source = make_wheel(
         tmp_path / "src" / "vllm-0.30.0-cp38-abi3-manylinux_2_28_x86_64.whl",

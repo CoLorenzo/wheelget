@@ -38,7 +38,14 @@ wheelget get vllm -o ~/wheels
 # fissare versione / variante / Python target
 wheelget url torch 2.9.1 --variant cu128
 wheelget url vllm 0.30.0 --python 3.12
+
+# dato un .whl di torch, stampa la versione Python richiesta (solo quella)
+wheelget torch-compability ~/wheels/torch-2.13.0+cu129-cp313-cp313-manylinux_2_28_x86_64.whl
+# -> 3.13
 ```
+
+Se non passi il percorso, `torch-compability` prende l'unico `torch*.whl`
+presente nella directory corrente.
 
 L'installazione la fai tu, ad esempio:
 
