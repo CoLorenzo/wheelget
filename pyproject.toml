@@ -1,0 +1,20 @@
+[project]
+name = "wheelget"
+description = "Trova e scarica la wheel giusta per la tua GPU NVIDIA (vLLM, PyTorch)."
+readme = "README.md"
+requires-python = ">=3.9"
+dynamic = ["version"]
+dependencies = []
+
+[project.scripts]
+wheelget = "wheelget.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/wheelget/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/wheelget"]
