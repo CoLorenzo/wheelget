@@ -217,19 +217,12 @@ def _cuda_from_args(args: argparse.Namespace) -> tuple[tuple[int, int], str]:
 
 
 def _run_torch_backend(args: argparse.Namespace) -> int:
-    cuda, cuda_source = _cuda_from_args(args)
+    cuda, _ = _cuda_from_args(args)
     target = Target.current()
     client = HttpClient(refresh=args.refresh, quiet=args.quiet)
     resolution = TorchProvider().resolve(
         client, version=None, variant=None, cuda=cuda, target=target
     )
-    if not args.quiet:
-        print(
-            f"wheelget: torch {resolution.version} [{resolution.variant}] "
-            f"per CUDA {cuda[0]}.{cuda[1]} ({cuda_source}), "
-            f"python {target.python[0]}.{target.python[1]} {target.os}/{target.arch}",
-            file=sys.stderr,
-        )
     print(resolution.variant)
     return 0
 

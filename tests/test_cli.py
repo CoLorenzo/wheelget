@@ -132,13 +132,13 @@ def test_torch_backend_prints_variant(monkeypatch, capsys):
     assert fake.calls == [(None, None, (13, 0))]
 
 
-def test_torch_backend_prints_info_to_stderr(monkeypatch, capsys):
+def test_torch_backend_prints_only_the_variant(monkeypatch, capsys):
     fake = FakeBackendTorchProvider(variant="cu126")
     monkeypatch.setattr("wheelget.cli.TorchProvider", lambda: fake)
     assert main(["torch-backend", "--cuda", "12.6"]) == 0
     captured = capsys.readouterr()
     assert captured.out == "cu126\n"
-    assert "torch 2.14.1 [cu126]" in captured.err
+    assert captured.err == ""
 
 
 def test_torch_compability_prints_python_version(tmp_path, capsys):
