@@ -9,6 +9,10 @@ con quella CUDA.
 - `wheelget get vllm` scarica anche la wheel di `torch` pinnata nel METADATA di
   vllm (es. `Requires-Dist: torch==2.13.0`), preferendo la stessa variante CUDA
   di vllm
+- `wheelget torch-backend` stampa il valore da usare con `--torch-backend` di uv
+  (es. `cu130`)
+- `wheelget torch-compability <file.whl>` stampa la versione Python richiesta da
+  una wheel torch (es. `3.13`)
 
 Provider supportati: `vllm` (indice `wheels.vllm.ai`) e `torch`
 (indice `download.pytorch.org/whl`, alias `pytorch`).
@@ -42,6 +46,10 @@ wheelget url vllm 0.30.0 --python 3.12
 # dato un .whl di torch, stampa la versione Python richiesta (solo quella)
 wheelget torch-compability ~/wheels/torch-2.13.0+cu129-cp313-cp313-manylinux_2_28_x86_64.whl
 # -> 3.13
+
+# il valore da passare a uv pip install --torch-backend
+wheelget torch-backend              # es. -> cu132
+wheelget torch-backend --cuda 12.6  # -> cu126
 ```
 
 Se non passi il percorso, `torch-compability` prende l'unico `torch*.whl`

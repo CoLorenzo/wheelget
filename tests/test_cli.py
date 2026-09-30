@@ -114,6 +114,33 @@ def test_get_vllm_torch_companion_falls_back_to_other_variant(tmp_path, monkeypa
     assert torch_provider.calls == [("2.13.0", "cu132"), ("2.13.0", None)]
 
 
+class FakeBackendTorchProvider:
+    def __init__(self, variant="cu132"):
+        self.variant = variant
+        self.calls = []
+
+    def resolve(self, client, *, version=None, variant=None, cuda=None, target=None):
+        self.calls.append((version, variant, cuda))
+        return Resolution(package="torch", version="2.14.1", variant=self.variant, wheel=None)
+
+
+def test_torch_backend_prints_variant(monkeypatch, capsys):
+    fake = FakeBackendTorchProvider()
+    monkeypatch.setattr("wheelget.cli.TorchProvider", lambda: fake)
+    assert main(["torch-backend", "--cuda", "13.0", "-q"]) == 0
+    assert capsys.readouterr().out == "cu132\n"
+    assert fake.calls == [(None, None, (13, 0))]
+
+
+def test_torch_backend_prints_info_to_stderr(monkeypatch, capsys):
+    fake = FakeBackendTorchProvider(variant="cu126")
+    monkeypatch.setattr("wheelget.cli.TorchProvider", lambda: fake)
+    assert main(["torch-backend", "--cuda", "12.6"]) == 0
+    captured = capsys.readouterr()
+    assert captured.out == "cu126\n"
+    assert "torch 2.14.1 [cu126]" in captured.err
+
+
 def test_torch_compability_prints_python_version(tmp_path, capsys):
     path = tmp_path / "torch-2.13.0+cu129-cp313-cp313-manylinux_2_28_x86_64.whl"
     path.write_bytes(b"")

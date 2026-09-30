@@ -74,6 +74,17 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="?",
         help="percorso della wheel torch (default: torch*.whl nella directory corrente)",
     )
+    backend = subparsers.add_parser(
+        "torch-backend",
+        help="stampa il valore da usare con --torch-backend di uv (es. cu130)",
+    )
+    backend.add_argument(
+        "--cuda",
+        metavar="VERSIONE",
+        help="forza la versione CUDA (es. 12.6, 12, cu126); default: rilevata",
+    )
+    backend.add_argument("--refresh", action="store_true", help="ignora la cache HTTP")
+    backend.add_argument("-q", "--quiet", action="store_true", help="stampa solo il risultato")
     return parser
 
 
@@ -91,17 +102,10 @@ def main(argv: list[str] | None = None) -> int:
 def _run(args: argparse.Namespace) -> int:
     if args.command in ("torch-compability", "torch-compatibility"):
         return _run_torch_compability(args)
+    if args.command == "torch-backend":
+        return _run_torch_backend(args)
     target = Target.current(python=_parse_python(args.python_version))
-    if args.cuda:
-        cuda = parse_cuda(args.cuda)
-        cuda_source = "da --cuda"
-    else:
-        detected = detect_cuda()
-        if detected is None:
-            raise WheelgetError(
-                "CUDA non rilevata (nvidia-smi/nvcc non trovati); usa --cuda X.Y"
-            )
-        cuda, cuda_source = detected
+    cuda, cuda_source = _cuda_from_args(args)
     provider = get_provider(args.package)
     client = HttpClient(refresh=args.refresh, quiet=args.quiet)
     resolution = provider.resolve(
@@ -199,6 +203,35 @@ def _torch_companion(
             file=sys.stderr,
         )
     return None
+
+
+def _cuda_from_args(args: argparse.Namespace) -> tuple[tuple[int, int], str]:
+    if args.cuda:
+        return parse_cuda(args.cuda), "da --cuda"
+    detected = detect_cuda()
+    if detected is None:
+        raise WheelgetError(
+            "CUDA non rilevata (nvidia-smi/nvcc non trovati); usa --cuda X.Y"
+        )
+    return detected
+
+
+def _run_torch_backend(args: argparse.Namespace) -> int:
+    cuda, cuda_source = _cuda_from_args(args)
+    target = Target.current()
+    client = HttpClient(refresh=args.refresh, quiet=args.quiet)
+    resolution = TorchProvider().resolve(
+        client, version=None, variant=None, cuda=cuda, target=target
+    )
+    if not args.quiet:
+        print(
+            f"wheelget: torch {resolution.version} [{resolution.variant}] "
+            f"per CUDA {cuda[0]}.{cuda[1]} ({cuda_source}), "
+            f"python {target.python[0]}.{target.python[1]} {target.os}/{target.arch}",
+            file=sys.stderr,
+        )
+    print(resolution.variant)
+    return 0
 
 
 def _run_torch_compability(args: argparse.Namespace) -> int:

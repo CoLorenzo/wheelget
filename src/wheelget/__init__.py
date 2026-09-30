@@ -1,3 +1,3 @@
 """wheelget - trova e scarica wheel CUDA-compatibili."""
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
