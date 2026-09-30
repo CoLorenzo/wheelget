@@ -10,6 +10,8 @@ from .cuda import detect_cuda, parse_cuda
 from .errors import WheelgetError
 from .http import HttpClient, download
 from .providers import get_provider
+from .providers.torch import TorchProvider
+from .providers.vllm import torch_pin_from_wheel
 from .wheels import Target
 
 
@@ -119,7 +121,72 @@ def _run(args: argparse.Namespace) -> int:
         sha256=resolution.wheel.sha256,
     )
     print(path)
+    if resolution.package == "vllm":
+        companion = _torch_companion(
+            client=client,
+            vllm_path=path,
+            resolution=resolution,
+            cuda=cuda,
+            target=target,
+            output=output,
+            quiet=args.quiet,
+            force=args.force,
+        )
+        if companion is not None:
+            print(companion)
     return 0
+
+
+def _torch_companion(
+    *,
+    client: HttpClient,
+    vllm_path: Path,
+    resolution,
+    cuda: tuple[int, int],
+    target: Target,
+    output: Path,
+    quiet: bool,
+    force: bool,
+) -> Path | None:
+    pin = torch_pin_from_wheel(vllm_path)
+    if pin is None:
+        if not quiet:
+            print(
+                f"wheelget: nota: nessun pin torch== trovato nel METADATA di {vllm_path.name}",
+                file=sys.stderr,
+            )
+        return None
+    provider = TorchProvider()
+    attempts = [resolution.variant, None] if resolution.variant else [None]
+    last_error: WheelgetError | None = None
+    for variant in attempts:
+        try:
+            torch_resolution = provider.resolve(
+                client, version=pin, variant=variant, cuda=cuda, target=target
+            )
+        except WheelgetError as exc:
+            last_error = exc
+            continue
+        if not quiet:
+            print(
+                f"wheelget: torch {torch_resolution.version} "
+                f"[{torch_resolution.variant or 'cpu'}] richiesto da vllm {resolution.version}",
+                file=sys.stderr,
+            )
+        return download(
+            torch_resolution.wheel.url,
+            output / torch_resolution.wheel.filename,
+            quiet=quiet,
+            force=force,
+            sha256=torch_resolution.wheel.sha256,
+        )
+    if not quiet:
+        print(
+            f"wheelget: nota: torch=={pin} richiesto da vllm non e' disponibile "
+            f"per CUDA {cuda[0]}.x ({last_error})",
+            file=sys.stderr,
+        )
+    return None
 
 
 def _parse_python(value: str | None) -> tuple[int, int] | None:

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import os
 import re
+import zipfile
 from collections.abc import Iterable
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from ..errors import WheelgetError
@@ -13,6 +15,25 @@ from .base import Provider, Resolution
 _RELEASES_URL = "https://api.github.com/repos/vllm-project/vllm/releases?per_page=100"
 _INDEX_ROOT = "https://wheels.vllm.ai"
 _MAX_RELEASE_LOOKBACK = 60
+_TORCH_PIN_RE = re.compile(
+    r"^Requires-Dist:\s*torch\s*==\s*([^;\s]+)", re.IGNORECASE | re.MULTILINE
+)
+
+
+def torch_pin_from_wheel(path: Path) -> str | None:
+    try:
+        with zipfile.ZipFile(path) as archive:
+            metadata = next(
+                (name for name in archive.namelist() if name.endswith(".dist-info/METADATA")),
+                None,
+            )
+            if metadata is None:
+                return None
+            text = archive.read(metadata).decode("utf-8", "replace")
+    except (OSError, zipfile.BadZipFile):
+        return None
+    match = _TORCH_PIN_RE.search(text)
+    return match.group(1) if match else None
 
 
 def _join_variants(variants: Iterable[str]) -> str:

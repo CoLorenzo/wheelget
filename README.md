@@ -6,6 +6,9 @@ con quella CUDA.
 
 - `wheelget url <pkg>` stampa il link diretto della wheel
 - `wheelget get <pkg>` scarica la wheel nella directory corrente
+- `wheelget get vllm` scarica anche la wheel di `torch` pinnata nel METADATA di
+  vllm (es. `Requires-Dist: torch==2.13.0`), preferendo la stessa variante CUDA
+  di vllm
 
 Provider supportati: `vllm` (indice `wheels.vllm.ai`) e `torch`
 (indice `download.pytorch.org/whl`, alias `pytorch`).
@@ -40,10 +43,14 @@ wheelget url vllm 0.30.0 --python 3.12
 L'installazione la fai tu, ad esempio:
 
 ```bash
-uv pip install ~/wheels/vllm-0.30.0-cp38-abi3-manylinux_2_28_x86_64.whl
+uv pip install ~/wheels/vllm-0.30.0+cu129-....whl ~/wheels/torch-2.13.0+cu129-....whl
 # oppure lasciando risolvere le dipendenze a uv:
 uv pip install vllm==0.30.0 --extra-index-url https://wheels.vllm.ai/0.30.0/cu130
 ```
+
+Con `get vllm` vengono scaricate entrambe le wheel (vllm + torch pinnata); se
+la versione di torch richiesta non esiste per nessuna variante compatibile,
+vllm viene comunque scaricata e la nota appare su stderr.
 
 ## Come sceglie
 
